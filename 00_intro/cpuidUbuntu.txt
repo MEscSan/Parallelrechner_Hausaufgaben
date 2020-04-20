@@ -1,0 +1,18 @@
+Highest Function Parameter: 0x14
+GenuineIntel
+CPUID Feature Bytes:
+ECX: 0x7FFAFBBF
+EDX: 0xBFEBFBFF
+SSE 1   : 1
+SSE 2   : 1
+SSE 3   : 1
+SSE 4.1 : 1
+SSE 4.2 : 1
+MMX     : 1
+AVX     : 1
+FMA3    : 1
+RANDR   : 1
+extended features:
+AVX2    : 1
+AVX512f : 0
+AVX512dq: 0
