@@ -1,0 +1,3 @@
+/media/pep/Maxtor/Marcos/Studium/Maschinenbau/0_SoSe2020/Parallelrechner/Parallelrechner_Hausaufgaben/01_SSE_AVX/Shuffle/build/CMakeFiles/rebuild_cache.dir
+/media/pep/Maxtor/Marcos/Studium/Maschinenbau/0_SoSe2020/Parallelrechner/Parallelrechner_Hausaufgaben/01_SSE_AVX/Shuffle/build/CMakeFiles/ShuffleTest.dir
+/media/pep/Maxtor/Marcos/Studium/Maschinenbau/0_SoSe2020/Parallelrechner/Parallelrechner_Hausaufgaben/01_SSE_AVX/Shuffle/build/CMakeFiles/edit_cache.dir
