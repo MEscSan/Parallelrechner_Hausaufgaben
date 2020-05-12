@@ -1,4 +1,4 @@
-build
+build/
 dummy.txt
-00_intro
+.00_intro/
 
