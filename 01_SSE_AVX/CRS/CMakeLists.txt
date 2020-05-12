@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+
+project(CRS_CCS VERSION 1.0 LANGUAGES C)
+
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 11)
+
+add_executable(CRS_CCS CRS_CCS.c)
