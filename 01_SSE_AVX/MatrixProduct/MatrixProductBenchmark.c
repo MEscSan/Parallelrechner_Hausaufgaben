@@ -7,9 +7,9 @@
 //intrinsics
 #include <immintrin.h>
 
-// Comparison of matrix product with a naive approach and using intrinsics
+// Comparison of matrix product with and without intrinsics
 
-// Typical matrix multipliclation (naive-Algorithm from Wikipedia:https://en.wikipedia.org/wiki/Matrix_multiplication_algorithm)
+// Standard matrix multipliclation (naive-Algorithm from Wikipedia:https://en.wikipedia.org/wiki/Matrix_multiplication_algorithm)
 // For-loops slightly adapted for vectorwise matrix storage
 // Matrix A(see algorithm) stored in row-major-order
 // Matrix B(see algorithm) stored in col-major-order
@@ -77,18 +77,68 @@ void matMultSSE(float* matA, float* matB, float* matC, int rowsA, int colsA, int
                 // (SIMD-Dot Product implementation, see:https://lemire.me/blog/2018/07/05/how-quickly-can-you-compute-the-dot-product-between-two-large-vectors/ )
                 for (int k = 0; k < colsA; k+=4)
                 {
-                    //Load first 4 elements of the row(A)/column(B) in an SSE-Register
+                    //Load first 4 elements of the row(A) or column(B) in an SSE-Register
                     vectorA = _mm_load_ps(matA + i + k);
                     vectorB = _mm_load_ps(matB + j + k);
 
-                    //Dot product using SSE-Registers
+                    //"Dot product"(step 1) using SSE-Registers 
                     sum = _mm_add_ps(sum, _mm_mul_ps(vectorA,vectorB));
 
-                }                   
+                }
+
+                //"Dot product"(step 2) using consecutive horizontal-adds 
+                // Result stored in all 4 elements of SSE-register although only once needed => room optimization
                 sum = _mm_hadd_ps(sum, sum);
                 sum = _mm_hadd_ps(sum, sum);
 
-                //Store element in the C-Matrix
+                //Store element from SSE-register in the C-Matrix 
+                _mm_store_ps(tmp, sum);
+                matC[indexC] = tmp[0];
+                indexC++;
+            }
+        }
+    }
+}
+
+// SSE matrix multipliclation: naive-algorithm with SIMD element-calculation
+// Same approach as in matMultSSE but using intrinsics dot-product-Function 
+void matMultSSE_DP(float* matA, float* matB, float* matC, int rowsA, int colsA, int rowsB, int colsB)
+{
+    //check if matrix multiplication possible:
+    if (colsA != rowsB)
+    {
+        printf("Wrong matrix dimensions!\n");
+    }
+    else
+    {
+        int numberOfAElements = rowsA * colsA;
+        int numberOfBElements = rowsB * colsB;
+        int indexC = 0;
+        float tmp[4];
+        __m128 sum;
+        __m128 vectorA;
+        __m128 vectorB;
+
+        for (int i = 0; i < numberOfAElements; i += colsA)
+        {
+            for (int j = 0; j < numberOfBElements; j += rowsB)
+            {
+                sum = _mm_setzero_ps();
+
+                // SIMD element calculation using dot product 
+                // (SIMD-Dot Product implementation, see:https://lemire.me/blog/2018/07/05/how-quickly-can-you-compute-the-dot-product-between-two-large-vectors/ )
+                for (int k = 0; k < colsA; k += 4)
+                {
+                    //Load first 4 elements of the row(A) or column(B) in an SSE-Register
+                    vectorA = _mm_load_ps(matA + i + k);
+                    vectorB = _mm_load_ps(matB + j + k);
+
+                    //"Dot product" using SSE dot-product implementation (result stored in first element of sum-register) 
+                    sum = _mm_add_ps(sum, _mm_dp_ps(vectorA, vectorB,0b11110001));
+
+                }
+
+                //Store element from SSE-register in the C-Matrix 
                 _mm_store_ps(tmp, sum);
                 matC[indexC] = tmp[0];
                 indexC++;
@@ -98,10 +148,7 @@ void matMultSSE(float* matA, float* matB, float* matC, int rowsA, int colsA, int
 }
 
 // AVX matrix multipliclation: naive-algorithm with SIMD element-calculation
-// No parallelization of the matrix-product as such; instead partial 
-// parallelization of the dot-product used for element calculation
-// Matrix A(see algorithm) stored in row-major-order
-// Matrix B(see algorithm) stored in col-major-order
+// Same approach as in matMultSSE
 void matMultAVX(float* matA, float* matB, float* matC, int rowsA, int colsA, int rowsB, int colsB)
 {
     //check if matrix multiplication possible:
@@ -129,18 +176,20 @@ void matMultAVX(float* matA, float* matB, float* matC, int rowsA, int colsA, int
                 //(SIMD-Dot Product implementation, see:https://lemire.me/blog/2018/07/05/how-quickly-can-you-compute-the-dot-product-between-two-large-vectors/ )
                 for (int k = 0; k < colsA; k += 8)
                 {
-                    //Load first 8 elements of the row(A)/column(B) in an AVX-Register
+                    //Load first 8 elements of the row(A) or column(B) in an AVX-Register
                     vectorA = _mm256_load_ps(matA + i + k);
                     vectorB = _mm256_load_ps(matB + j + k);
 
-                    //Dot product using SSE-Registers
+                    //"Dot product"(step 1) using AVX-Registers 
                     sum = _mm256_add_ps(sum, _mm256_mul_ps(vectorA, vectorB));
                 }
 
+                //"Dot product"(step 2) using consecutive horizontal-adds 
+                // Problem: result not stored in consecutive register elements => memory access through array-index
                 sum = _mm256_hadd_ps(sum, sum);
                 sum = _mm256_hadd_ps(sum, sum);
                 
-                //Store element in the C-Matrix
+                //Calculate result adding non-consecutive register-elements and store it in the C-Matrix
                 _mm256_store_ps(tmp, sum);
                 matC[indexC] = tmp[0]+tmp[4];
                 indexC++;
@@ -197,7 +246,7 @@ void printMatRowMajor(float* mat, int rows, int cols)
     }
 }
 
-// Generate a random matrix given its dimensions
+// Generate a random matrix with natural elements from 0 to 9 given its dimensions
 void randMat(float* mat, int rows, int cols)
 {
     int numberOfElements = rows * cols;
@@ -212,9 +261,9 @@ int main(int argc, char const *argv[])
 {
     clock_t start_t, end_t;
     double total_t;
-    float *matA, *matB, *matC, *matC_SSE, *matC_AVX;
+    float *matA, *matB, *matC, *matC_SSE, *matC_SSE_DP, *matC_AVX;
     int rowsA = 0, colsA = 0, rowsB = 0, colsB = 0, rowsC = 0, colsC = 0;
-    int right_SSE = 0, right_AVX = 0;
+    int right_SSE = 0, right_SSE_DP = 0, right_AVX = 0;
 
     //Seed random number generator
     srand(time(NULL));
@@ -264,23 +313,23 @@ int main(int argc, char const *argv[])
     matB = _aligned_malloc(sizeof(int) * rowsB * colsB, 32);
     matC = _aligned_malloc(sizeof(int) * rowsC * colsC, 32);
     matC_SSE = _aligned_malloc(sizeof(int) * rowsC * colsC, 32);
+    matC_SSE_DP = _aligned_malloc(sizeof(int) * rowsC * colsC, 32);
     matC_AVX = _aligned_malloc(sizeof(int) * rowsC * colsC, 32);
     #elif OS_UNIXOID
     matA = aligned_alloc(32, sizeof(int) * rowsA * colsA);
     matB = aligned_alloc(32, sizeof(int) * rowsB * colsB);
     matC = aligned_alloc(32, sizeof(int) * rowsC * colsC);
     matC_SSE = aligned_alloc(32, sizeof(int) * rowsC * colsC);
+    matC_SSE_DP = aligned_alloc(32, sizeof(int) * rowsC * colsC);
     matC_AVX = aligned_alloc(32, sizeof(int) * rowsC * colsC);
     #endif
 
     //Generate random Matrices:
     randMat(matA, rowsA, colsA);
     randMat(matB, rowsB, colsB);
-    // Show matrices_
+    // Show matrix dimensions
     printf("Matrix A (Dim.: %d x %d)\n", rowsA, colsA);
-    //printMatRowMajor(matA, rowsA, colsA);
     printf("Matrix B (Dim.: %d x %d)\n", rowsB, colsB);
-    //printMatColMajor(matB, rowsB, colsB);
 
     //Benchmarking
 
@@ -290,8 +339,6 @@ int main(int argc, char const *argv[])
     end_t = clock();
     total_t = ((double)end_t - (double)start_t) / CLOCKS_PER_SEC;
     printf("\nNormal: %f\n", total_t);
-    //printf("\nNormal matrix product: \n");
-    //printMatRowMajor(matC, rowsC, colsC);
     
     //SSE
     start_t = clock();
@@ -303,6 +350,18 @@ int main(int argc, char const *argv[])
     if (right_SSE) 
     {
         printf("SSE Matrix product was right\n");
+    }
+
+    //SSE-Dot Product Function
+    start_t = clock();
+    matMultSSE_DP(matA, matB, matC_SSE_DP, rowsA, colsA, rowsB, colsB);
+    end_t = clock();
+    total_t = ((double)end_t - (double)start_t) / CLOCKS_PER_SEC;
+    printf("\nSSE-Dot Product Function: %f\n", total_t);
+    right_SSE_DP = equalMat(matC, matC_SSE_DP, rowsC, colsC);
+    if (right_SSE_DP)
+    {
+        printf("SSE Matrix product with dot-product function was right\n");
     }
     
     //AVX

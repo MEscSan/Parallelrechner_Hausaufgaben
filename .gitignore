@@ -1,6 +1,7 @@
 build/
 dummy.txt
 00_intro/
+01_SSE_AVX/CRS/
 .vs/
 .vscode/
 
