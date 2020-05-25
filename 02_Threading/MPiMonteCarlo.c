@@ -35,10 +35,6 @@
             3.  Count number of samples inside and outside the quadrant
             4.  Pi = 4*(Number of samples inside quadrant/Number of total samples)
 
-            Steps 2. and 3. can be run in n threads (one for each sample)-> parallel for-loop 
-            Considering step 3: generate 2 random floats between 0 and 1
-                d=sqrt(x^2+y^2) == distance to (0,0)->Instead taking d^2 as comparison maybe faster
-
         Source:https://en.wikipedia.org/wiki/Monte_Carlo_method
 */
 #include <omp.h>
