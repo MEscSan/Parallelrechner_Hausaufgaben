@@ -16,11 +16,5 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMp_EXE_LINKER_FLAGS}
 
 add_executable(MPiMonteCarlo MPiMonteCarlo.c)
 
-#add_executable(HelloPosixThreads HelloPosixThreads.c)
-#add_executable(HelloMutex HelloMutex.c)
-#add_executable(DeadLock DeadLock.c)
-#add_executable(MoneyAccount MoneyAccount.c)
-#target_link_libraries(HelloPosixThreads Threads::Threads)
-#target_link_libraries(HelloMutex Threads::Threads)
-#target_link_libraries(DeadLock Threads::Threads)
-#target_link_libraries(MoneyAccount Threads::Threads)
+add_executable(MoneyAccount MoneyAccount.c)
+target_link_libraries(MoneyAccount Threads::Threads)
