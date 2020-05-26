@@ -7,25 +7,41 @@
 #define WAIT_TIME 1000
 
 pthread_mutex_t accountLock, calenderLock;
-int year_global = 1, month_global= 1, day_global = 0, account = 0;
+//Global Time-variables
+int year_global = 1, month_global= 1, day_global = 0;
+//Global Account-Variable
+int account = 0;
 
+//Granny-Thread
 void* GrannyFunction(void* data){
 	
+	int year = 0;
+	int month = 0;
+	int day = 0;	
+	
+	// Control-variable to prevent Granny from giving money more than once a month
+	int monthHasChanged = 0;
+
 	while(1){
 
 		pthread_mutex_lock(&calenderLock);
-
-		int year = year_global;
-		int month = month_global;
-		int day = day_global;
 		
+		if(month != month_global){
+			year = year_global;
+			month = month_global;
+			day = day_global;
+			monthHasChanged = 1;
+		}
+		else{
+			monthHasChanged = 0;
+		}		
+
 		pthread_mutex_unlock(&calenderLock);
 
 		pthread_mutex_lock(&accountLock);	
 		
-		//Granny looks in calender if we have the first day in the month
-		if(day==1){
-			//Granny gives Timmy 100 EUR
+		if(day==1 && monthHasChanged){
+			
 			account+=100;
 			printf("%d. %d. %d -> Granny gives Timmy 100 Euro => Currently %d EUR in Timmys account\n",day,month,year, account);
 		}
@@ -37,28 +53,41 @@ void* GrannyFunction(void* data){
 	}
 }
 
+//Timmy-Expenses Thread: Timmy spends 30 EUR a week till he is 18, the he begins spending 45 EUR a week
 void* TimmyFunction(void* data){
+	int year = 0;
+	int month = 0;
+	int day	= 0;
+
+	// Control-variable to prevent Timmy from spending money more than once a week
+	int dayHasChanged = 0;
+
 	while(1){
+
 		pthread_mutex_lock(&calenderLock);
 
-		int year = year_global;
-		int month = month_global;
-		int day = day_global;
-
+		if(day!= day_global){
+			year = year_global;
+			month = month_global;
+			day = day_global;
+			dayHasChanged = 1;
+		}
+		else{
+			dayHasChanged = 0;
+		}
+	
 		pthread_mutex_unlock(&calenderLock);
 
 		pthread_mutex_lock(&accountLock);
 		
-		// Timmy's age is calculated using 30-years-cycles beginning from 2002
 		// One year is assumed to have 360 days
 		int totalNumberOfDays = day + (month-1)*30 + (year-1)*360;
 		int expenses = 30;	
 
 		
-		if(totalNumberOfDays%7==0){
+		if(totalNumberOfDays%7==0 && dayHasChanged){
 
 			if(year > 17){
-			// Now that Timmy is (at least legally) a grownup, he needs 45 EUR a week
 				expenses = 45;
 			}
 
@@ -77,12 +106,17 @@ void* TimmyFunction(void* data){
 }
 
 void* TimmysRiderFunction(void* data){
+	
+	int year = 0;
+	int month = 0;
+	int day = 0;
+	
+	//No control variable, paying twice is not bad
+	
 	while(1){
 		pthread_mutex_lock(&calenderLock);
 
-		int year = year_global;
-		int month = month_global;
-		int day = day_global;
+
 
 		pthread_mutex_unlock(&calenderLock);
 
@@ -98,7 +132,7 @@ void* TimmysRiderFunction(void* data){
 			salary -= rand()%70;
 			account += salary;
 		
-			printf("%d. %d. %d -> Timmy earned %d EUR => Currently %d EUR in Timmys account\n", day, month, year,salary, account);
+			//printf("%d. %d. %d -> Timmy earned %d EUR => Currently %d EUR in Timmys account\n", day, month, year,salary, account);
 			
 		}
 		pthread_mutex_unlock(&accountLock);
