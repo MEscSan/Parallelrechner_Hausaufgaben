@@ -132,7 +132,7 @@ void* TimmysRiderFunction(void* data){
 			salary -= rand()%70;
 			account += salary;
 		
-			//printf("%d. %d. %d -> Timmy earned %d EUR => Currently %d EUR in Timmys account\n", day, month, year,salary, account);
+			printf("%d. %d. %d -> Timmy earned %d EUR => Currently %d EUR in Timmys account\n", day, month, year,salary, account);
 			
 		}
 		pthread_mutex_unlock(&accountLock);
