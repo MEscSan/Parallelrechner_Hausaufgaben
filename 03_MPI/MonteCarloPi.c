@@ -13,10 +13,7 @@
 void scaleUpTest(int timeout, time_t start, time_t current, int timer)
 {
     if(time(&current)== timer + timeout)
-    {
-
-
-    }
+    { }
 }
 ///
 
@@ -27,23 +24,34 @@ double piMonteCarlo(int totalSamples) {
     double d = 0, x = 0, y = 0, piApprox = 0;
     int samplesInQuadrant = 0;
 
-    for (int i = 0; i < totalSamples; i++) {
+    //The logical approach would be to use a shared samplesInQuadrant-variable, however these apparently reduces the speed of the multi-threaded version and delivers a poor 
+    //approximation of Pi. An (inefficient) alternative to the shared variable is the splitting of the for-loop into two tasks: 
+    //--> calculation of the samples (parallel) and storing their distance to (0,0) in a double-array
+    //--> counting of the samples in the quadrant (serial, in order to avoid the use of a shared-variable) 
+    double *samples = malloc(sizeof(double) * totalSamples);
+
+   
+    for (int i = 0; i < (int)totalSamples; i++) {
         //Generate 2 random coordinates (x and y) in a 1x1 square surface
         x = ((double)rand()) / RAND_MAX;
         y = ((double)rand()) / RAND_MAX;
 
         //Calculate square of the distance of a given sample to (0,0)
-        d = x * x + y * y;
-
+        samples[i] = x * x + y * y;
+     }
+     
+    for (int i = 0; i < totalSamples; i++)
+    {
         //The square of the distance of a given sample to (0,0) is smaller than 1 for points in the quadrant
-        if (d <= 1) {
+        if (samples[i] <= 1) {
             samplesInQuadrant++;
         }
     }
-
+  
     //The ratio of samples in the quadrant to the number of total samples is actually pi/4, so pi = 4*ratio
-    piApprox = (double)4 * samplesInQuadrant / (double)totalSamples;
+    piApprox = (double)4*samplesInQuadrant/(double)totalSamples;
     return piApprox;
+
 }
 
 //Multi-Threading version to approximate Pi using Monte-Carlo Method a described in theory-block
@@ -52,7 +60,7 @@ double piMonteCarlo(int totalSamples) {
 double piMonteCarlo_omp(int totalSamples) {
 
     double x = 0, y = 0, piApprox = 0;
-    int i;
+    
     int samplesInQuadrant=0;
 
     //The logical approach would be to use a shared samplesInQuadrant-variable, however these apparently reduces the speed of the multi-threaded version and delivers a poor 
@@ -62,7 +70,7 @@ double piMonteCarlo_omp(int totalSamples) {
     double *samples = malloc(sizeof(double) * totalSamples);
 
     #pragma omp parallel for private(x,y)
-    for (i = 0; i < (int)totalSamples; i++) {
+    for (int i = 0; i < (int)totalSamples; i++) {
         //Generate 2 random coordinates (x and y) in a 1x1 square surface
         x = ((double)rand()) / RAND_MAX;
         y = ((double)rand()) / RAND_MAX;
@@ -124,7 +132,7 @@ int main(int argc, char *argv[]){
     clock_t start_t, startMPI_t, end_t, endMPI_t;
     double totalSerial_t, totalOMP_t, totalMPI_t, total_t;
     double speedUp_Serial2OMP, speedUp_Serial2MPI, speedUp_OMP2MPI ;
-    double scaleUp;
+    double efficiency_Serial2MPI, efficiency_OMP2MPI;
 
     //Variables for Pi-Calculation
     int numSamples = 1000;
@@ -184,10 +192,10 @@ int main(int argc, char *argv[]){
 
             //Print the results
             printf("\n%d samples -> serial Pi-Approximation =           %f\n", numSamples, piApprox);
-            printf("%d samples -> multi threaded Pi-Approximation =   %f\n", numSamples, piApproxOMP);
-            printf("%d samples -> OpenMP Pi-Approximation =   %f\n", numSamples, piApproxMPI);
+            printf("%d samples -> multi threaded Pi-Approximation =     %f\n", numSamples, piApproxOMP);
+            printf("%d samples -> OpenMP Pi-Approximation =             %f\n", numSamples, piApproxMPI);
             
-            printf("time serial =   %f\n", total_t);
+            printf("time serial =   %f\n", totalSerial_t);
             printf("time OpenMP =   %f\n", totalOMP_t);
             printf("time MPI    =   %f\n", totalMPI_t);
             
@@ -200,7 +208,15 @@ int main(int argc, char *argv[]){
             printf("speedUp Serial vs MPI = %f\n", speedUp_Serial2MPI);
             printf("speedUp    OMP vs MPI = %f\n", speedUp_OMP2MPI);
 
-            
+            // Parallel Speedup efficiency = speedup/number of processors
+            // Only for MPI-Speedups, since OMP actually  multithreading but not multiprocessing
+            efficiency_Serial2MPI = speedUp_Serial2MPI / numProcs;
+            efficiency_OMP2MPI = speedUp_OMP2MPI / numProcs;
+
+            printf("Efficiency Serial vs MPI with %d processes =    %f\n", numProcs, efficiency_Serial2MPI);
+            printf("Efficiency OMP vs MPI with %d processes =       %f\n", numProcs, efficiency_OMP2MPI);
+        
+        
         }
     }
 
