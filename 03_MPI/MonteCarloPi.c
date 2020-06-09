@@ -9,7 +9,7 @@
 #include <time.h>
 #include <mpi.h> 
 
-///
+/// A possible approach for scale-up, not zet implementend
 void scaleUpTest(int timeout, time_t start, time_t current, int timer)
 {
     if(time(&current)== timer + timeout)
@@ -24,10 +24,6 @@ double piMonteCarlo(int totalSamples) {
     double d = 0, x = 0, y = 0, piApprox = 0;
     int samplesInQuadrant = 0;
 
-    //The logical approach would be to use a shared samplesInQuadrant-variable, however these apparently reduces the speed of the multi-threaded version and delivers a poor 
-    //approximation of Pi. An (inefficient) alternative to the shared variable is the splitting of the for-loop into two tasks: 
-    //--> calculation of the samples (parallel) and storing their distance to (0,0) in a double-array
-    //--> counting of the samples in the quadrant (serial, in order to avoid the use of a shared-variable) 
     double *samples = malloc(sizeof(double) * totalSamples);
 
    
@@ -103,6 +99,8 @@ double piMonteCarlo_mpi(int numSamples, int numProcs)
     int samplesInQuadrant = 0;
     int numSamplesInProc = (int)(numSamples / (double)numProcs);
 
+    double *samples = malloc(sizeof(double) * numSamplesInProc);
+
     for (int i = 0; i < numSamplesInProc; i++)
     {
         //Generate 2 random coordinates (x and y) in a 1x1 square surface
@@ -110,10 +108,13 @@ double piMonteCarlo_mpi(int numSamples, int numProcs)
         y = ((double)rand()) / RAND_MAX;
 
         //Calculate square of the distance of a given sample to (0,0)
-        d = x * x + y * y;
+        samples[i] = x * x + y * y;
+    }
 
+    for (int i = 0; i < numSamplesInProc; i++)
+    {
         //The square of the distance of a given sample to (0,0) is smaller than 1 for points in the quadrant
-        if (d <= 1) {
+        if (samples[i] <= 1) {
             samplesInQuadrant++;
         }
     }
