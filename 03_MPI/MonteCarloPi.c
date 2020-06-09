@@ -9,6 +9,17 @@
 #include <time.h>
 #include <mpi.h> 
 
+///
+void scaleUpTest(int timeout, time_t start, time_t current, int timer)
+{
+    if(time(&current)== timer + timeout)
+    {
+
+
+    }
+}
+///
+
 //Approximate Pi using Monte-Carlo Method a described in theory-block
 //Boundary condition: squared of radius 1 consindered
 double piMonteCarlo(int totalSamples) {
@@ -82,7 +93,7 @@ double piMonteCarlo_mpi(int numSamples, int numProcs)
 
     double d = 0, x = 0, y = 0, piApprox = 0;
     int samplesInQuadrant = 0;
-    int numSamplesInProc = round(numSamples / (double)numProcs);
+    int numSamplesInProc = (int)(numSamples / (double)numProcs);
 
     for (int i = 0; i < numSamplesInProc; i++)
     {
@@ -104,7 +115,7 @@ double piMonteCarlo_mpi(int numSamples, int numProcs)
     return piApprox;
 }
 
-int main(int argc, char const *argv[]){
+int main(int argc, char *argv[]){
     
     //Seed random number generator
     srand(time(NULL));
@@ -131,20 +142,12 @@ int main(int argc, char const *argv[]){
     // All not-MPI Calculations are done in Process 0
     while(1){
 
-        if(myID==0)
-        {
+        if(myID==0){
             //User defined number of samples:
             printf("Enter number of samples: (0 to quit) ");
             fflush(stdout);
             fgets(input, 50, stdin);
             numSamples = atoi(input);
-
-            //Broadcast number of samples to all processes in order to begin MPI-Calculation
-            startMPI_t = clock();
-            MPI_Bcast((void *)&numSamples, 1, MPI_INT, 0, MPI_COMM_WORLD);
-            if(numSamples==0){
-                break;
-            }
 
             // Serial MonteCarlo Pi-Approximation
             start_t = clock();
@@ -157,41 +160,51 @@ int main(int argc, char const *argv[]){
             piApproxOMP = piMonteCarlo_omp(numSamples);
             end_t = clock();
             totalOMP_t = ((double)end_t - start_t) / CLOCKS_PER_SEC;
+            
+            //Broadcast number of samples to all processes in order to begin MPI-Calculation
+            startMPI_t = clock(); 
+        }
+    
+        
+        MPI_Bcast((void *)&numSamples, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        if(numSamples==0){
+                break;
+        }
+        mypi = piMonteCarlo_mpi(numSamples, numProcs);
+
+        //Add the calculations of all processes
+        MPI_Reduce((void*)&mypi, (void*)&piApproxMPI,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
+    
+         //Process 0 shows the results
+        if(myID == 0){
+
+            //Time required for the MPI-Calculation
+            endMPI_t = clock();
+            totalMPI_t = ((double)endMPI_t - startMPI_t) / CLOCKS_PER_SEC;
+
+            //Print the results
+            printf("\n%d samples -> serial Pi-Approximation =           %f\n", numSamples, piApprox);
+            printf("%d samples -> multi threaded Pi-Approximation =   %f\n", numSamples, piApproxOMP);
+            printf("%d samples -> OpenMP Pi-Approximation =   %f\n", numSamples, piApproxMPI);
+            
+            printf("time serial =   %f\n", total_t);
+            printf("time OpenMP =   %f\n", totalOMP_t);
+            printf("time MPI    =   %f\n", totalMPI_t);
+            
+            //Speedup = time_serial/time_multiThreading
+            speedUp_Serial2OMP = totalSerial_t / totalOMP_t;
+            speedUp_Serial2MPI = totalSerial_t / totalMPI_t;
+            speedUp_OMP2MPI = totalOMP_t / totalMPI_t;
+            
+            printf("speedUp Serial vs OMP = %f\n", speedUp_Serial2OMP);
+            printf("speedUp Serial vs MPI = %f\n", speedUp_Serial2MPI);
+            printf("speedUp    OMP vs MPI = %f\n", speedUp_OMP2MPI);
+
+            
         }
     }
 
-    mypi = piMonteCarlo_mpi(numSamples, numProcs);
-
-    //Add the calculations of all processes
-    MPI_Reduce((void*)&mypi, (void*)&piApproxMPI,1,MPI_DOUBLE,MPI_SUM,0,MPI_COMM_WORLD);
-    
-    //Process 0 shows the results
-    if(myID == 0){
-
-        //Time required for the MPI-Calculation
-        endMPI_t = clock();
-        total_t = ((double)endMPI_t - startMPI_t) / CLOCKS_PER_SEC;
-        totalMPI_t = total_t - totalSerial_t - totalOMP_t;
-
-        //Print the results
-        printf("\n%d samples -> serial Pi-Approximation =           %f\n", numSamples, piApprox);
-        printf("%d samples -> multi threaded Pi-Approximation =   %f\n", numSamples, piApproxOMP);
-        printf("%d samples -> OpenMP Pi-Approximation =   %f\n", numSamples, piApproxOMP);
-        
-        printf("time serial =   %f\n", total_t);
-        printf("time OpenMP =   %f\n", totalOMP_t);
-        printf("time MPI =   %f\n", totalMPI_t);
-        
-        //Speedup = time_serial/time_multiThreading
-        speedUp_Serial2OMP = totalSerial_t / totalOMP_t;
-        speedUp_Serial2MPI = totalSerial_t / totalMPI_t;
-        speedUp_OMP2MPI = totalOMP_t / totalMPI_t;
-        
-        printf("speedUp Serial vs OMP = %f", speedUp_Serial2OMP);
-        printf("speedUp Serial vs MPI = %f", speedUp_Serial2MPI);
-        printf("speedUp OMP vs MPI = %f", speedUp_OMP2MPI);
-
-    }
+    MPI_Finalize();
 
     return EXIT_SUCCESS;
 }

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10 FATAL ERROR)
+cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
 
 project(MPI VERSION 1.0 LANGUAGES C)
 
