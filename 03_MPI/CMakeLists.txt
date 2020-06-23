@@ -19,3 +19,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMp_EXE_LINKER_FLAGS}
 
 add_executable(MonteCarloPi MonteCarloPi.c)
 target_link_libraries(MonteCarloPi MPI::MPI_C)
+
+add_executable(Workload Workload.c)
+target_link_libraries(Workload MPI::MPI_C)
+target_link_libraries(Workload m)

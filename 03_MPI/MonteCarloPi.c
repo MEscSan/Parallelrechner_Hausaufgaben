@@ -216,8 +216,6 @@ int main(int argc, char *argv[]){
 
             printf("Efficiency Serial vs MPI with %d processes =    %f\n", numProcs, efficiency_Serial2MPI);
             printf("Efficiency OMP vs MPI with %d processes =       %f\n", numProcs, efficiency_OMP2MPI);
-        
-        
         }
     }
 
