@@ -8,6 +8,13 @@
 #include<omp.h>
 #include<mpi.h>
 
+//Source Code originally written for:
+//          OS: Ubuntu 18.04.1
+//          CPU: Intel Core i7-5500U 
+#define OS "Ubuntu 18.04.1"
+#define CPU "Inte Core i7-5500U"
+
+
 //Small Integral and Power-Series calculations:
 // -> One Process to approximate the solution, the rest to approximate the integral
 // -> Natural Logarithm approximated using Power series
@@ -20,7 +27,7 @@ double ln_powerSeries_parallel(double x, long long iterations, int workers)
     double ln_x = 0;
 
     // Start the fork of threads
-    #pragma omp parallel reduction(+: ln_x) //num_threads(workers)
+    #pragma omp parallel reduction(+: ln_x) num_threads(workers)
     {
         long long n;
         
@@ -54,10 +61,10 @@ double pi_parallel(long long iterations, int workers, int numProcs)
     long long samplesInQuadrant = 0;
 
     // Start the fork of threads
-    #pragma omp parallel reduction(+: samplesInQuadrant) //num_threads(workers)
+    #pragma omp parallel reduction(+: samplesInQuadrant) num_threads(workers)
     {
         //Seed for random number generator for each thread
-        srand((int)time(NULL) * omp_get_thread_num());
+        int mySeed = omp_get_thread_num();
 
         double x = 0;
         double y = 0;
@@ -67,8 +74,8 @@ double pi_parallel(long long iterations, int workers, int numProcs)
         #pragma omp for 
         for(i = 0; i < iterations; i+=numProcs)
         {
-            x = ((double)rand()) / RAND_MAX;
-            y = ((double)rand()) / RAND_MAX;
+            x = (double)rand_r(&mySeed) / RAND_MAX;
+            y = (double)rand_r(&mySeed) / RAND_MAX;
 
             d = x * x + y * y;
 
@@ -123,7 +130,7 @@ double integral_parallel(long long intervals, long long iterations, int numProcs
     double value = 0;
 
     //Riemann-Summ
-    #pragma omp parallel reduction(+: value) //num_thread()
+    #pragma omp parallel reduction(+: value) num_threads(workers)
     {
         #pragma omp for  
         for (n = myId; n < intervals; n += numProcs)
@@ -202,8 +209,8 @@ double value_sequential(long long iterations)
 
 int main(int argc, char* argv[])
 {
+    
     int myId, value, numProcs;
-
     int done = 0;
     int cycle = 0;
 
@@ -225,6 +232,10 @@ int main(int argc, char* argv[])
     double end_parallel, end_sequential, end_c;
     double time_parallel, time_sequential, time_c;
 
+    if(myId == 0)
+    {
+        printf("Warning: source code originally written for\n\t\tOS: %s\n\t\tCPU: %s\n", OS, CPU);
+    }
 
     //In order to get stable results calculations are done four times
     //  ->  1 Warm up
@@ -246,12 +257,12 @@ int main(int argc, char* argv[])
                 fgets(intervalsInput, 50, stdin);
                 intervals = atoll(intervalsInput);
 
-                //printf("Maximal number of threads: %d\n", omp_get_max_threads()) ;
+                printf("Maximal number of threads: %d\n", omp_get_max_threads()) ;
 
-                //printf("Number of Open MP threads: \n");
-                //fflush(stdout);
-                //fgets(workersInput, 10, stdin);
-                //workers = atoi(workersInput);
+                printf("Number of Open MP threads: \n");
+                fflush(stdout);
+                fgets(workersInput, 10, stdin);
+                workers = atoi(workersInput);
 
             }
 
