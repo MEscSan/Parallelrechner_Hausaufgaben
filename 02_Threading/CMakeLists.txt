@@ -15,6 +15,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMp_EXE_LINKER_FLAGS}")
 
 add_executable(MPiMonteCarlo MPiMonteCarlo.c)
+target_link_libraries(MPiMonteCarlo m)
 
 add_executable(MoneyAccount MoneyAccount.c)
 target_link_libraries(MoneyAccount Threads::Threads)

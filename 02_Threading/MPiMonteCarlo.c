@@ -38,6 +38,7 @@
         Source:https://en.wikipedia.org/wiki/Monte_Carlo_method
 */
 #include <omp.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -57,7 +58,7 @@ double piMonteCarlo(int totalSamples) {
         y = ((double)rand()) / RAND_MAX;
 
         //Calculate square of the distance of a given sample to (0,0)
-        d = x * x + y * y;
+        d = sqrt(x * x + y * y);
 
         //The square of the distance of a given sample to (0,0) is smaller than 1 for points in the quadrant
         if (d <= 1) {
@@ -73,36 +74,39 @@ double piMonteCarlo(int totalSamples) {
 //Multi-Threading version to approximate Pi using Monte-Carlo Method a described in theory-block
 //Boundary condition: squared of radius 1 consindered
 //Each Sample is generated in a parallel thread using OpenMP
-double piMonteCarlo_omp(int totalSamples) {
+double piMonteCarlo_omp(long totalSamples, int workers ) {
 
-    double x = 0, y = 0, piApprox = 0;
-    int i;
-    int samplesInQuadrant=0;
+    double piApprox = 0;
+    double samplesInQuadrant = 0;
 
-    //The logical approach would be to use a shared samplesInQuadrant-variable, however these apparently reduces the speed of the multi-threaded version and delivers a poor 
-    //approximation of Pi. An (inefficient) alternative to the shared variable is the splitting of the for-loop into two tasks: 
-    //--> calculation of the samples (parallel) and storing their distance to (0,0) in a double-array
-    //--> counting of the samples in the quadrant (serial, in order to avoid the use of a shared-variable) 
-    double *samples = malloc(sizeof(double) * totalSamples);
+    int nThreads = 0;
 
-    #pragma omp parallel for private(x,y)
-    for (i = 0; i < (int)totalSamples; i++) {
-        //Generate 2 random coordinates (x and y) in a 1x1 square surface
-        x = ((double)rand()) / RAND_MAX;
-        y = ((double)rand()) / RAND_MAX;
-
-        //Calculate square of the distance of a given sample to (0,0)
-        samples[i] = x * x + y * y;
-     }
-     
-    for (int i = 0; i < totalSamples; i++)
+    //Start the parallel fork:
+    #pragma omp parallel reduction(+:samplesInQuadrant) num_threads(workers)
     {
-        //The square of the distance of a given sample to (0,0) is smaller than 1 for points in the quadrant
-        if (samples[i] <= 1) {
-            samplesInQuadrant++;
+        //Seed for thread specific random number generator
+        int myID = omp_get_thread_num();
+        double x = 0, y = 0, d = 0;
+        int i; 
+
+    #pragma omp for 
+        for (i = 0; i < totalSamples; i++) 
+        {
+            //Generate 2 random coordinates (x and y) in a 1x1 square surface
+            x = (double)rand_r(&myID) / RAND_MAX;
+            y = (double)rand_r(&myID) / RAND_MAX;
+
+            //Calculate square of the distance of a given sample to (0,0)
+            d = sqrt(x * x + y * y); 
+                                    //The square of the distance of a given sample to (0,0) is smaller than 1 for points in the quadrant
+            if (d <= 1) 
+            {
+                samplesInQuadrant++;
+            }
         }
     }
-  
+    //Leave the parallel block
+
     //The ratio of samples in the quadrant to the number of total samples is actually pi/4, so pi = 4*ratio
     piApprox = (double)4*samplesInQuadrant/(double)totalSamples;
     return piApprox;
@@ -114,38 +118,63 @@ int main(int argc, char const *argv[]){
     srand(time(NULL));
     
     //Benchmarking variables
-    clock_t start_t, end_t;
+    double start_t, end_t;
     double total_t, totalOMP_t, speedUp, scaleUp;
 
-    int totalSamples = 1000;
+    long totalSamples = 1000;
+    long workers = 2;
+    char workersInput[50];
     double piApprox = 0, mpiApprox = 0;
 
     if(argc > 1){
         totalSamples = atoi(argv[1]);
     }
 
-    // Serial MonteCarlo Pi-Approximation
-    start_t = clock();
-    piApprox = piMonteCarlo(totalSamples);
-    end_t = clock();
-    total_t = ((double)end_t - start_t) / CLOCKS_PER_SEC;
+    while(1)
+    {
+        printf("Number of Threads(0 quit): \n");
+        fflush(stdout);
+        fgets(workersInput, 50, stdin);
+        workers = atoi(workersInput);
 
-    // Multi Threading Pi-Approximation
-    start_t = clock();
-    mpiApprox = piMonteCarlo_omp(totalSamples);
-    end_t = clock();
-    totalOMP_t = ((double)end_t - start_t) / CLOCKS_PER_SEC;
+        int cycle = 0;
 
-    printf("\n%d samples -> serial Pi-Approximation =           %f\n", totalSamples, piApprox);
-    printf("%d samples -> multi threaded Pi-Approximation =   %f\n", totalSamples, mpiApprox);
+        if(workers==0)
+        {
+            break;
+        }
 
-    printf("time serial =   %f\n", total_t);
-    printf("time OpenMP =   %f\n", totalOMP_t);
+        while(cycle < 4)
+        {
 
-    //Speedup = time_serial/time_multiThreading
-    speedUp = total_t / totalOMP_t;
+            // Serial MonteCarlo Pi-Approximation
+            start_t = omp_get_wtime();
+            piApprox = piMonteCarlo(totalSamples);
+            end_t = omp_get_wtime();
+            total_t = ((double)end_t - start_t);
 
-    printf("speedUp = %f", speedUp);
+            // Multi Threading Pi-Approximation
+            start_t = omp_get_wtime();
+            mpiApprox = piMonteCarlo_omp(totalSamples, workers);
+            end_t = omp_get_wtime();
+            totalOMP_t = ((double)end_t - start_t);
 
+            printf("\n%lu samples -> serial Pi-Approximation =           %f\n", totalSamples, piApprox);
+            printf("%lu samples -> multi threaded Pi-Approximation =   %f\n", totalSamples, mpiApprox);
+
+            printf("time serial =   %f\n", total_t);
+            printf("time OpenMP =   %f\n", totalOMP_t);
+
+            //Speedup = time_serial/time_multiThreading
+            speedUp = total_t / totalOMP_t;   
+            printf("speedUp = %f\n", speedUp);
+
+            cycle++;
+        }
+    
+    }
+
+
+ 
     return EXIT_SUCCESS;
 }
