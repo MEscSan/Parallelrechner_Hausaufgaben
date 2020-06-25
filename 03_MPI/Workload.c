@@ -257,8 +257,6 @@ int main(int argc, char* argv[])
                 fgets(intervalsInput, 50, stdin);
                 intervals = atoll(intervalsInput);
 
-                printf("Maximal number of threads: %d\n", omp_get_max_threads()) ;
-
                 printf("Number of Open MP threads: \n");
                 fflush(stdout);
                 fgets(workersInput, 10, stdin);
