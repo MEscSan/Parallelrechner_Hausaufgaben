@@ -3,7 +3,6 @@
 #include<string.h>
 #include<stdint.h>
 #include<time.h>
-#include<sys/time.h>
 #include<math.h>
 #include<omp.h>
 #include<mpi.h>
@@ -25,14 +24,12 @@
 double ln_powerSeries_parallel(double x, long long iterations, int workers)
 {
     double ln_x = 0;
-
+    long long n;
     // Start the fork of threads
     #pragma omp parallel reduction(+: ln_x) num_threads(workers)
     {
-        long long n;
-        
-        #pragma omp for 
-        for(n = 1; n < iterations; ++n)
+    #pragma omp for 
+        for(n = 1; n < iterations; n++)
         {
             ln_x += pow(-1, n + 1) * pow(x - 1, n) / (double)n;
         }
@@ -58,30 +55,30 @@ double ln_powerSeries_sequential(double x, long long iterations)
 double pi_parallel(long long iterations, int workers, int numProcs)
 {
     double pi = 0;
-    long long samplesInQuadrant = 0;
+    long long samplesInQuadrant = 0;       
+    long long i;
+    double x = 0;
+    double y = 0;
+    double d = 0;
 
     // Start the fork of threads
-    #pragma omp parallel reduction(+: samplesInQuadrant) num_threads(workers)
+    #pragma omp parallel reduction(+: samplesInQuadrant) num_threads(workers) private(x,y,d)
     {
         //Seed for random number generator for each thread
-        int mySeed = omp_get_thread_num();
+ int mySeed = omp_get_thread_num();
+        
 
-        double x = 0;
-        double y = 0;
-        double d = 0;
-        long long i;
-
-        #pragma omp for 
+    #pragma omp for 
         for(i = 0; i < iterations; i+=numProcs)
         {
             x = (double)rand_r(&mySeed) / RAND_MAX;
             y = (double)rand_r(&mySeed) / RAND_MAX;
 
-            d = x * x + y * y;
+            d = sqrt(x * x + y * y);
 
             if(d <= 1)
             {
-                ++samplesInQuadrant;
+                samplesInQuadrant++;
             }
         }        
     }
@@ -107,7 +104,7 @@ double pi_sequential(long long iterations)
     {
         x = ((double)rand()) / RAND_MAX;
         y = ((double)rand()) / RAND_MAX;
-        d = x * x + y * y;
+        d = sqrt(x * x + y * y);
 
         if(d <= 1)
         {
@@ -132,11 +129,10 @@ double integral_parallel(long long intervals, long long iterations, int numProcs
     //Riemann-Summ
     #pragma omp parallel reduction(+: value) num_threads(workers)
     {
-        #pragma omp for  
-        for (n = myId; n < intervals; n += numProcs)
+        //Integral approximation with a Riemann-Sum (asuming equal intervals)
+    #pragma omp for  
+        for (n = myId; n < intervals; n ++)
         {
-            x = h*n;
-            ln = ln_powerSeries_parallel(1 + x, iterations, workers);
             value += ln / (x * x + 1);
         }
     }
@@ -292,7 +288,7 @@ int main(int argc, char* argv[])
             break;
 
         value_proc = value_parallel(iterations, workers, numProcs);
-        MPI_Reduce((void*)&value_proc, (void*) &value_par, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce((void *)&value_proc, (void *)&value_par, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
         integral_proc = integral_parallel(intervals, iterations, numProcs, workers, myId);
 
@@ -300,7 +296,7 @@ int main(int argc, char* argv[])
 
         if(myId == 0)
         {
-          end_parallel = MPI_Wtime();
+            end_parallel = MPI_Wtime();
 
             time_c = (end_c - start_c);
             time_sequential = (end_sequential - start_sequential);
